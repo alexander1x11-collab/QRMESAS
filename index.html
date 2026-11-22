@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>La Joya Licorería - Tu Cuenta</title>
+  <link rel="icon" type="image/png" href="https://i.ibb.co/gLJsFsnX/logojoya.png">
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #111; color: #fff; margin: 0; padding: 16px; text-align: center; }
+    .card { max-width: 420px; margin: auto; background: #1e1e1e; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,.5); }
+    .logo { width: 110px; background: #fff; border-radius: 12px; padding: 8px; margin-bottom: 10px; }
+    h2 { margin: 6px 0; color: #fbbf24; }
+    .alias { color: #ddd; margin: 4px 0 14px; font-size: 0.95em; }
+    .item { display: flex; justify-content: space-between; text-align: left; padding: 10px 0; border-bottom: 1px solid #333; }
+    .precio { text-align: right; color: #4ade80; font-weight: bold; }
+    .total { margin-top: 16px; padding-top: 12px; border-top: 2px solid #fbbf24; font-size: 1.35em; font-weight: bold; }
+    .bs { color: #ccc; font-size: 0.85em; margin-top: 4px; }
+    .vacio { color: #aaa; padding: 20px 0; }
+    small { color: #aaa; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img class="logo" src="https://i.ibb.co/gLJsFsnX/logojoya.png" alt="La Joya">
+    <h2 id="titulo">Cargando cuenta...</h2>
+    <div id="alias" class="alias"></div>
+    <div id="lista"></div>
+    <div id="totales" class="total" style="display:none;">
+      <div id="totalUsd"></div>
+      <div id="totalBs" class="bs"></div>
+    </div>
+    <p><small>Se actualiza automáticamente cada 15 seg</small></p>
+  </div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbxptni1VZnL2Vc8k0RMJ2BhBxGnvgZw1IJxwjbVbx8Bh262N8r6NQc4tuoMz2uwiTE-/exec";
+    const params = new URLSearchParams(window.location.search);
+    const idMesa = params.get("mesa") || params.get("qr") || "";
+
+    async function cargarCuenta() {
+      if (!idMesa) {
+        document.getElementById("titulo").innerText = "Mesa no especificada";
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}?action=mesa_qr&mesa=${encodeURIComponent(idMesa)}&_t=${Date.now()}`, { cache: "no-store" });
+        const data = await res.json();
+        if (!data.ok) {
+          document.getElementById("titulo").innerText = data.error || "Mesa no encontrada";
+          return;
+        }
+        document.getElementById("titulo").innerText = data.mesa.nombre_mesa;
+        document.getElementById("alias").innerText = data.mesa.alias_cliente || "";
+
+        if (!data.items || data.items.length === 0) {
+          document.getElementById("lista").innerHTML = '<p class="vacio">Aún no hay consumos registrados en esta mesa.</p>';
+        } else {
+          document.getElementById("lista").innerHTML = data.items.map(it => {
+            let desc = `${it.cantidad_unidades} und`;
+            if (it.combos > 0 && it.sueltas > 0) desc = `${it.combos} combo(s) + ${it.sueltas} suelta(s)`;
+            else if (it.combos > 0) desc = `${it.combos} combo(s)`;
+            return `<div class="item">
+              <div><strong>${it.nombre}</strong><br><small>${desc}</small></div>
+              <div class="precio">$${Number(it.subtotal_usd).toFixed(2)}<br><small>${Number(it.subtotal_bs).toFixed(2)} Bs</small></div>
+            </div>`;
+          }).join("");
+        }
+
+        document.getElementById("totalUsd").innerText = `Total: $${Number(data.total_usd).toFixed(2)}`;
+        document.getElementById("totalBs").innerText = `${Number(data.total_bs).toFixed(2)} Bs`;
+        document.getElementById("totales").style.display = "block";
+      } catch (e) {
+        document.getElementById("titulo").innerText = "Error de conexión";
+      }
+    }
+
+    cargarCuenta();
+    setInterval(cargarCuenta, 15000);
+  </script>
+</body>
+</html>
